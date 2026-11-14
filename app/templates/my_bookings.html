@@ -7,7 +7,7 @@
   <tbody>
   {% for b, ev, cat in rows %}
   <tr>
-    <td>{{ b.id }}</td>
+    <td><a class="btn btn-outline-primary btn-sm" href="/bookings/{{ b.id }}">Tickets #{{ b.id }}</a></td>
     <td><a href="/events/{{ ev.id }}">{{ ev.title }}</a><br><span class="small text-muted">{{ ev.start_time.strftime('%d %b %Y %H:%M') }}</span></td>
     <td>{{ cat.name }}</td>
     <td>{{ b.quantity }}</td>

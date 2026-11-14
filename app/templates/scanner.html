@@ -1,5 +1,87 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Ticket scanner</h2>
-<p>Only staff and admins can see this page.</p>
+<div class="mb-3">
+  <label class="form-label">Event at the gate</label>
+  <select id="event" class="form-select">
+    {% for ev in events %}
+    <option value="{{ ev.id }}">{{ ev.title }} - {{ ev.start_time.strftime('%d %b %H:%M') }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<div id="result" class="alert alert-secondary fs-5">Scan a ticket or type the code below.</div>
+
+<div id="reader" style="max-width:420px;width:100%"></div>
+<button id="startBtn" class="btn btn-primary my-3">Start camera</button>
+<button id="stopBtn" class="btn btn-outline-secondary my-3" style="display:none">Stop camera</button>
+
+<h5>Manual entry (if the camera does not work)</h5>
+<div class="input-group mb-3">
+  <input id="manual" class="form-control" placeholder="Paste or type the ticket code">
+  <button id="manualBtn" class="btn btn-success">Check</button>
+</div>
+
+<input type="hidden" id="csrf" name="csrf_token" value="{{ csrf_token }}">
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+var resultBox = document.getElementById('result');
+var lastCode = '', lastTime = 0, scanner = null;
+
+function show(kind, text) {
+  resultBox.className = 'alert alert-' + kind + ' fs-5';
+  resultBox.textContent = text;
+}
+
+async function check(code) {
+  code = (code || '').trim();
+  var eventId = document.getElementById('event').value;
+  if (!code) { return; }
+  if (!eventId) { show('warning', 'Choose an event first.'); return; }
+  var body = new FormData();
+  body.append('code', code);
+  body.append('event_id', eventId);
+  body.append('csrf_token', document.getElementById('csrf').value);
+  try {
+    var res = await fetch('/scanner/check', { method: 'POST', body: body });
+    var data = await res.json();
+    if (!res.ok) { show('warning', data.detail || 'Request failed.'); return; }
+    if (data.admitted) {
+      show('success', 'ADMIT - ' + data.event + '. ' + data.reason);
+    } else {
+      show('danger', 'REJECTED: ' + data.result.replace(/_/g, ' ') + ' - ' + data.reason);
+    }
+  } catch (e) {
+    show('warning', 'Network error. Try again.');
+  }
+}
+
+document.getElementById('manualBtn').onclick = function () {
+  check(document.getElementById('manual').value);
+};
+
+document.getElementById('startBtn').onclick = function () {
+  scanner = new Html5Qrcode('reader');
+  scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 250 }, function (text) {
+    var now = Date.now();
+    if (text === lastCode && now - lastTime < 4000) { return; }  // ignore repeated frames
+    lastCode = text; lastTime = now;
+    check(text);
+  }).then(function () {
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'inline-block';
+  }).catch(function (err) {
+    show('warning', 'Camera not available (' + err + '). Use manual entry instead.');
+  });
+};
+
+document.getElementById('stopBtn').onclick = function () {
+  if (scanner) {
+    scanner.stop().then(function () {
+      document.getElementById('startBtn').style.display = 'inline-block';
+      document.getElementById('stopBtn').style.display = 'none';
+    });
+  }
+};
+</script>
 {% endblock %}

@@ -1,6 +1,8 @@
+import io
 from datetime import datetime
+import qrcode
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response, JSONResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -405,3 +407,49 @@ def hire_decide(request_id: int, request: Request, decision: str = Form(...),
     else:
         flash(request, reply["content"]["reason"], "danger")
     return go("/admin/hires")
+
+# =====================================================================
+#  TICKETS (QR codes) AND GATE SCANNER
+# =====================================================================
+@router.get("/bookings/{booking_id}")
+def booking_tickets(booking_id: int, request: Request,
+                    db: Session = Depends(get_db), user=Depends(get_current_user)):
+    if not user:
+        return need_login(request)
+    booking = db.get(models.Booking, booking_id)
+    if booking is None or (booking.user_id != user.id and user.role != "admin"):
+        raise HTTPException(status_code=404, detail="Booking not found")
+    event = db.get(models.Event, booking.event_id)
+    cat = db.get(models.TicketCategory, booking.category_id)
+    tickets = db.query(models.Ticket).filter_by(booking_id=booking.id).order_by(models.Ticket.id).all()
+    return render(request, "tickets.html", user, booking=booking, event=event, cat=cat, tickets=tickets)
+
+
+@router.get("/qr/{code}")
+def qr_image(code: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """Draw the QR code image for one ticket. Only the ticket owner, staff or admin can see it."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Please log in first")
+    ticket = db.query(models.Ticket).filter_by(code=code).first()
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    booking = db.get(models.Booking, ticket.booking_id)
+    if booking.user_id != user.id and user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Not your ticket")
+    buffer = io.BytesIO()
+    qrcode.make(code).save(buffer, format="PNG")
+    return Response(content=buffer.getvalue(), media_type="image/png")
+
+
+@router.post("/scanner/check")
+def scanner_check(request: Request, code: str = Form(...), event_id: int = Form(...),
+                  db: Session = Depends(get_db), user=Depends(require_role("staff", "admin")),
+                  _=Depends(verify_csrf)):
+    """The scanner page sends the code here. The TicketAgent makes the decision."""
+    reply = bus.send(db, "Web", "TicketAgent", "REQUEST",
+                     {"action": "check_in", "code": code, "event_id": event_id})
+    c = reply["content"]
+    return JSONResponse({"admitted": reply["performative"] == "AGREE",
+                         "result": c.get("result", "ERROR"),
+                         "reason": c.get("reason", ""),
+                         "event": c.get("event", "")})

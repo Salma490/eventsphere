@@ -126,7 +126,10 @@ def message_log(request: Request, db: Session = Depends(get_db),
     return render(request, "messages.html", user, messages=msgs)
 
 @app.get("/scanner")
-def scanner_page(request: Request, user=Depends(require_role("staff", "admin"))):
-    return render(request, "scanner.html", user)
+def scanner_page(request: Request, db: Session = Depends(get_db),
+                 user=Depends(require_role("staff", "admin"))):
+    events = (db.query(models.Event).filter(models.Event.status == "published")
+              .order_by(models.Event.start_time).all())
+    return render(request, "scanner.html", user, events=events)
 
 app.include_router(router)

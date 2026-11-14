@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ event.title }}</h2>
+<p class="mb-1">{{ event.start_time.strftime('%a %d %b %Y, %H:%M') }}</p>
+<p class="text-muted">Booking #{{ booking.id }} &middot; {{ cat.name }} &middot; Payment ref <code>{{ booking.payment_ref }}</code></p>
+<p>Show a QR code below on your phone at the entrance. Each ticket works <strong>once</strong>.</p>
+<div class="row g-3">
+  {% for t in tickets %}
+  <div class="col-12 col-sm-6 col-md-4">
+    <div class="card text-center"><div class="card-body">
+      <img src="/qr/{{ t.code }}" alt="QR code" class="img-fluid" style="max-width:240px">
+      <p class="mb-1 small text-muted">Ticket {{ loop.index }} of {{ tickets|length }}</p>
+      <span class="badge bg-{{ 'success' if t.status == 'valid' else ('secondary' if t.status == 'used' else 'danger') }}">{{ t.status }}</span>
+      <p class="small mt-2 mb-0"><code>{{ t.code }}</code></p>
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+<a href="/my/bookings" class="btn btn-outline-secondary mt-3">Back to my bookings</a>
+{% endblock %}
