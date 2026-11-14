@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Venue hire decision</h2>
+<p><strong>{{ venue.name }}</strong>, {{ req.start_time.strftime('%d %b %Y %H:%M') }} to {{ req.end_time.strftime('%H:%M') }}, {{ req.guests }} guests.</p>
+
+{% if reply.performative == 'AGREE' %}
+  <div class="alert alert-success"><strong>Confirmed!</strong> Price: LKR {{ '%.2f'|format(reply.content.price) }}.</div>
+{% elif reply.performative == 'INFORM' %}
+  <div class="alert alert-info"><strong>Sent to the admin for approval.</strong> {{ reply.content.reason }}
+    Estimated price: LKR {{ '%.2f'|format(reply.content.price) }}.</div>
+{% elif reply.performative == 'PROPOSE' %}
+  <div class="alert alert-warning"><strong>We cannot offer that exactly.</strong> {{ reply.content.reason }}</div>
+  <h5>Alternatives</h5>
+  <div class="list-group mb-3">
+    {% for a in reply.content.alternatives %}
+    <a class="list-group-item list-group-item-action"
+       href="/hire?venue_id={{ a.venue_id }}&start={{ a.start[:16] }}&end={{ a.end[:16] }}&guests={{ req.guests }}&purpose={{ req.purpose|urlencode }}">
+      <strong>{{ a.venue_name }}</strong>: {{ a.start[:16].replace('T', ' ') }} to {{ a.end[11:16] }}, LKR {{ '%.2f'|format(a.price) }}<br>
+      <span class="small text-muted">{{ a.reason }}. Tap to request this instead.</span>
+    </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="alert alert-danger"><strong>Request refused.</strong> {{ reply.content.reason }}</div>
+{% endif %}
+<a href="/hire" class="btn btn-outline-primary">Back to venue hire</a>
+{% endblock %}

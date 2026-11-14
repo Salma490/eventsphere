@@ -1,10 +1,39 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Welcome to EventSphere</h1>
-<p class="lead">Book tickets for university events and hire venues.</p>
-{% if user %}
-  <p>You are logged in as <strong>{{ user.name }}</strong>.</p>
-{% else %}
-  <p>Please <a href="/login">log in</a> or <a href="/register">register</a> to continue.</p>
-{% endif %}
+<h2 class="mb-3">Upcoming events</h2>
+<form method="get" action="/" class="row g-2 mb-4">
+  <div class="col-12 col-md-6">
+    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search events by keyword">
+  </div>
+  <div class="col-8 col-md-4">
+    <select name="category" class="form-select">
+      <option value="">All categories</option>
+      {% for c in categories %}
+      <option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-4 col-md-2"><button class="btn btn-primary w-100">Search</button></div>
+</form>
+<div class="row g-3">
+  {% for ev in events %}
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="card h-100 shadow-sm">
+      {% if venues[ev.venue_id].image_url %}
+      <img src="{{ venues[ev.venue_id].image_url }}" class="card-img-top" alt="" style="height:160px;object-fit:cover">
+      {% endif %}
+      <div class="card-body">
+        <span class="badge bg-info text-dark">{{ ev.category }}</span>
+        <h5 class="card-title mt-2">{{ ev.title }}</h5>
+        <p class="mb-1 small">{{ venues[ev.venue_id].name }}, {{ venues[ev.venue_id].location }}</p>
+        <p class="mb-1 small">{{ ev.start_time.strftime('%a %d %b %Y, %H:%M') }}</p>
+        <p class="small">From LKR {{ '%.2f'|format(prices.get(ev.id, 0)) }} &middot; {{ left.get(ev.id, 0) }} tickets left</p>
+        <a href="/events/{{ ev.id }}" class="btn btn-primary btn-sm">View and book</a>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="text-muted">No events found.</p>
+  {% endfor %}
+</div>
 {% endblock %}

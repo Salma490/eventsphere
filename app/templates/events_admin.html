@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="m-0">Manage events</h2>
+  <a href="/admin/events/new" class="btn btn-primary btn-sm">New event</a>
+</div>
+<div class="table-responsive">
+<table class="table table-striped align-middle">
+  <thead><tr><th>Title</th><th>Venue</th><th>Start</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for ev in events %}
+  <tr>
+    <td><a href="/events/{{ ev.id }}">{{ ev.title }}</a></td>
+    <td>{{ venues[ev.venue_id].name }}</td>
+    <td>{{ ev.start_time.strftime('%d %b %Y %H:%M') }}</td>
+    <td>{{ ev.status }}</td>
+    <td class="d-flex gap-1">
+      {% if ev.status == 'draft' %}
+      <form method="post" action="/admin/events/{{ ev.id }}/publish">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-success btn-sm">Publish</button></form>
+      {% endif %}
+      {% if ev.status == 'published' %}
+      <form method="post" action="/admin/events/{{ ev.id }}/cancel" onsubmit="return confirm('Cancel this event and refund everyone?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-outline-danger btn-sm">Cancel event</button></form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="text-muted">No events yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

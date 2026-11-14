@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="m-0">Venues</h2>
+  <a href="/admin/venues/new" class="btn btn-primary btn-sm">New venue</a>
+</div>
+<div class="table-responsive">
+<table class="table table-striped align-middle">
+  <thead><tr><th>Name</th><th>Location</th><th>Capacity</th><th>Rate/hour</th><th>Open for hire</th><th></th></tr></thead>
+  <tbody>
+  {% for v in venues %}
+  <tr><td>{{ v.name }}</td><td>{{ v.location }}</td><td>{{ v.capacity }}</td>
+      <td>LKR {{ '%.2f'|format(v.hourly_rate) }}</td><td>{{ 'Yes' if v.open_for_hire else 'No' }}</td>
+      <td><a href="/admin/venues/{{ v.id }}/edit" class="btn btn-outline-primary btn-sm">Edit</a></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

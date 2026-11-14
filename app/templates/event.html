@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+{% if event.status == 'cancelled' %}<div class="alert alert-danger">This event was cancelled.</div>{% endif %}
+{% if event.status == 'draft' %}<div class="alert alert-warning">Draft: not visible to the public.</div>{% endif %}
+{% if venue.image_url %}
+<img src="{{ venue.image_url }}" alt="" class="img-fluid rounded mb-3" style="max-height:260px;object-fit:cover;width:100%">
+{% endif %}
+<span class="badge bg-info text-dark">{{ event.category }}</span>
+<h2 class="mt-2">{{ event.title }}</h2>
+<p class="mb-1"><strong>Venue:</strong> {{ venue.name }}, {{ venue.location }}</p>
+<p class="mb-1"><strong>When:</strong> {{ event.start_time.strftime('%a %d %b %Y, %H:%M') }} to {{ event.end_time.strftime('%H:%M') }}</p>
+<p>{{ event.description }}</p>
+
+<h5>Tickets</h5>
+<div class="table-responsive">
+<table class="table table-sm">
+  <thead><tr><th>Category</th><th>Price (LKR)</th><th>Left</th></tr></thead>
+  <tbody>
+  {% for c in cats %}
+  <tr><td>{{ c.name }}</td><td>{{ '%.2f'|format(c.price) }}</td>
+      <td>{% if c.remaining > 0 %}{{ c.remaining }}{% else %}<span class="badge bg-danger">Sold out</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% if can_book %}
+  {% if not user %}
+    <p><a href="/login" class="btn btn-primary">Log in to book</a></p>
+  {% else %}
+    {% set available = cats | selectattr('remaining', 'gt', 0) | list %}
+    {% set soldout = cats | selectattr('remaining', 'le', 0) | list %}
+    {% if available %}
+    <div class="card mb-3"><div class="card-body">
+      <h5>Book tickets</h5>
+      <form method="post" action="/events/{{ event.id }}/book" class="row g-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="col-12 col-md-5">
+          <select name="category_id" class="form-select">
+            {% for c in available %}<option value="{{ c.id }}">{{ c.name }} - LKR {{ '%.2f'|format(c.price) }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-5 col-md-3">
+          <input type="number" name="quantity" class="form-control" value="1" min="1" max="6" required>
+        </div>
+        <div class="col-7 col-md-4"><button class="btn btn-success w-100">Pay and book (simulated)</button></div>
+      </form>
+      <p class="small text-muted mt-2 mb-0">Payments are simulated. No real card details are collected. Maximum 6 tickets per person.</p>
+    </div></div>
+    {% endif %}
+    {% if soldout %}
+    <div class="card mb-3"><div class="card-body">
+      <h5>Sold out? Join the waitlist</h5>
+      <form method="post" action="/events/{{ event.id }}/waitlist" class="row g-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="col-12 col-md-5">
+          <select name="category_id" class="form-select">
+            {% for c in soldout %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-5 col-md-3"><input type="number" name="quantity" class="form-control" value="1" min="1" max="6"></div>
+        <div class="col-7 col-md-4"><button class="btn btn-warning w-100">Join waitlist</button></div>
+      </form>
+    </div></div>
+    {% endif %}
+    {% if my_wait %}<div class="alert alert-info">You are on the waitlist for this event. See <a href="/my/bookings">My bookings</a>.</div>{% endif %}
+  {% endif %}
+{% endif %}
+{% endblock %}

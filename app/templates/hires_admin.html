@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Venue hire requests</h2>
+<div class="table-responsive">
+<table class="table table-striped align-middle">
+  <thead><tr><th>#</th><th>Requested by</th><th>Venue</th><th>When</th><th>Guests</th><th>Purpose</th><th>Price</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for r, u, v in rows %}
+  <tr>
+    <td>{{ r.id }}</td><td>{{ u.name }}</td><td>{{ v.name }}</td>
+    <td>{{ r.start_time.strftime('%d %b %H:%M') }} to {{ r.end_time.strftime('%H:%M') }}</td>
+    <td>{{ r.guests }}</td><td>{{ r.purpose }}</td><td>LKR {{ '%.2f'|format(r.price) }}</td><td>{{ r.status }}</td>
+    <td>
+      {% if r.status == 'pending' %}
+      <form method="post" action="/admin/hires/{{ r.id }}/decide" class="d-flex gap-1">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button name="decision" value="approve" class="btn btn-success btn-sm">Approve</button>
+        <button name="decision" value="reject" class="btn btn-outline-danger btn-sm">Reject</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="text-muted">No requests yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

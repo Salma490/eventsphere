@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>My bookings</h2>
+<div class="table-responsive">
+<table class="table table-sm align-middle">
+  <thead><tr><th>#</th><th>Event</th><th>Category</th><th>Qty</th><th>Amount</th><th>Payment ref</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for b, ev, cat in rows %}
+  <tr>
+    <td>{{ b.id }}</td>
+    <td><a href="/events/{{ ev.id }}">{{ ev.title }}</a><br><span class="small text-muted">{{ ev.start_time.strftime('%d %b %Y %H:%M') }}</span></td>
+    <td>{{ cat.name }}</td>
+    <td>{{ b.quantity }}</td>
+    <td>LKR {{ '%.2f'|format(b.amount) }}</td>
+    <td><code>{{ b.payment_ref }}</code></td>
+    <td>{{ b.status }}{% if b.status == 'cancelled' %}<br><span class="small">Refund LKR {{ '%.2f'|format(b.refund_amount) }}</span>{% endif %}</td>
+    <td>
+      {% if b.status == 'confirmed' and ev.start_time > now %}
+      <form method="post" action="/bookings/{{ b.id }}/cancel" onsubmit="return confirm('Cancel this booking?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-outline-danger btn-sm">Cancel</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8">No bookings yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<div class="alert alert-secondary small">
+  <strong>Refund policy:</strong> 7 or more days before the event = 100% refund; 1 to 7 days = 50%; less than 24 hours = no refund.
+  If an event is cancelled by the organiser, you always get a full refund.
+</div>
+
+<h4 class="mt-4">My waitlist</h4>
+{% for w, ev, cat in waits %}
+<div class="card mb-2"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <div>
+    <strong>{{ ev.title }}</strong> - {{ w.quantity }} x {{ cat.name }}<br>
+    {% if w.status == 'held' %}
+      <span class="badge bg-success">Seats held for you</span>
+      Time left: <strong class="countdown" data-seconds="{{ remaining[w.id] }}"></strong>
+    {% else %}
+      <span class="badge bg-secondary">Waiting</span>
+    {% endif %}
+  </div>
+  {% if w.status == 'held' %}
+  <form method="post" action="/waitlist/{{ w.id }}/claim">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="btn btn-success btn-sm">Claim and pay (simulated)</button>
+  </form>
+  {% endif %}
+</div></div>
+{% else %}
+<p class="text-muted">You are not on any waitlist.</p>
+{% endfor %}
+<script>
+document.querySelectorAll('.countdown').forEach(function (el) {
+  var s = parseInt(el.dataset.seconds);
+  function tick() {
+    if (s <= 0) { el.textContent = 'expired'; return; }
+    el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    s--; setTimeout(tick, 1000);
+  }
+  tick();
+});
+</script>
+{% endblock %}

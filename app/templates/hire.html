@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Hire a venue</h2>
+<p class="text-muted">Request a whole venue for a private occasion. You get an instant decision from the VenueAgent.</p>
+<form method="post" action="/hire" class="row g-3 mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="col-12 col-md-6">
+    <label class="form-label">Venue</label>
+    <select name="venue_id" class="form-select" required>
+      {% for v in venues %}
+      <option value="{{ v.id }}" {% if f.venue_id == v.id %}selected{% endif %}>{{ v.name }} (up to {{ v.capacity }} guests, LKR {{ '%.0f'|format(v.hourly_rate) }}/hour)</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-3"><label class="form-label">Start</label>
+    <input type="datetime-local" name="start" class="form-control" value="{{ f.start }}" required></div>
+  <div class="col-6 col-md-3"><label class="form-label">End</label>
+    <input type="datetime-local" name="end" class="form-control" value="{{ f.end }}" required></div>
+  <div class="col-12 col-md-8"><label class="form-label">Purpose</label>
+    <input type="text" name="purpose" class="form-control" value="{{ f.purpose }}" placeholder="Farewell, reception, club meeting..." required></div>
+  <div class="col-12 col-md-4"><label class="form-label">Number of guests</label>
+    <input type="number" name="guests" class="form-control" min="1" value="{{ f.guests }}" required></div>
+  <div class="col-12"><button class="btn btn-primary">Request venue</button></div>
+</form>
+
+<h5>My hire requests</h5>
+<div class="table-responsive">
+<table class="table table-sm">
+  <thead><tr><th>#</th><th>Venue</th><th>When</th><th>Guests</th><th>Price</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for r in mine %}
+  <tr><td>{{ r.id }}</td><td>{{ names[r.venue_id] }}</td>
+      <td>{{ r.start_time.strftime('%d %b %H:%M') }} to {{ r.end_time.strftime('%H:%M') }}</td>
+      <td>{{ r.guests }}</td><td>LKR {{ '%.2f'|format(r.price) }}</td><td>{{ r.status }}</td></tr>
+  {% else %}
+  <tr><td colspan="6" class="text-muted">None yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

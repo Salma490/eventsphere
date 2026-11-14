@@ -1,7 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Admin dashboard</h2>
-<div class="list-group">
-  <a class="list-group-item list-group-item-action" href="/admin/messages">Agent message log</a>
+<h2>Organiser dashboard</h2>
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <a class="btn btn-primary btn-sm" href="/admin/events/new">New event</a>
+  <a class="btn btn-outline-primary btn-sm" href="/admin/venues">Venues</a>
+  <a class="btn btn-outline-primary btn-sm" href="/admin/hires">Hire requests
+    {% if pending %}<span class="badge bg-danger">{{ pending }}</span>{% endif %}</a>
+  <a class="btn btn-outline-secondary btn-sm" href="/admin/messages">Agent message log</a>
+</div>
+<div class="table-responsive">
+<table class="table table-striped align-middle">
+  <thead><tr><th>Event</th><th>Status</th><th>Tickets sold</th><th>Capacity</th>
+    <th>Revenue (LKR)</th><th>Checked in</th></tr></thead>
+  <tbody>
+  {% for s in stats %}
+  <tr>
+    <td><a href="/events/{{ s.event.id }}">{{ s.event.title }}</a></td>
+    <td>{{ s.event.status }}</td>
+    <td>{{ s.sold }}</td>
+    <td>{{ s.capacity }}</td>
+    <td>{{ '%.2f'|format(s.revenue) }}</td>
+    <td>{{ s.checked_in }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6">No events yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
 </div>
 {% endblock %}
