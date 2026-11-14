@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Agent message log</h2>
+<p class="text-muted">Newest first. Messages with the same conversation id belong to one user action.</p>
+<div class="table-responsive">
+<table class="table table-sm table-striped align-middle">
+  <thead><tr><th>Conversation</th><th>Time</th><th>From → To</th><th>Type</th><th>Content</th></tr></thead>
+  <tbody>
+  {% for m in messages %}
+  <tr>
+    <td><code>{{ m.conversation_id }}</code></td>
+    <td class="small">{{ m.created_at.strftime('%d %b %H:%M:%S') }}</td>
+    <td>{{ m.sender }} → {{ m.receiver }}</td>
+    <td><span class="badge bg-secondary">{{ m.performative }}</span></td>
+    <td><code class="small">{{ m.content | tojson }}</code></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5">No messages yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
