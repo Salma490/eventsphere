@@ -11,7 +11,10 @@ class BaseAgent:
             if msg.performative == "INFORM":
                 return None  # not interested in this broadcast
             return ("FAILURE", {"reason": f"{self.name} does not understand '{action}'"})
-        return method(db, msg)
+        result = method(db, msg)
+        if result:  # remember how this agent has answered (persistent belief)
+            self.incr_state(db, f"replies:{action}:{result[0]}")
+        return result
 
     # ---- persistent beliefs (saved in the database, survive restarts) ----
     def get_state(self, db, key, default=""):
