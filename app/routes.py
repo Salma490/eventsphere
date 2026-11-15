@@ -1,9 +1,13 @@
 import io
-from datetime import datetime
+import os
+import secrets
+from datetime import datetime, timedelta
+
 import qrcode
-from fastapi import APIRouter, Request, Depends, Form, HTTPException
+from fastapi import APIRouter, Request, Depends, Form, HTTPException, Header
 from fastapi.responses import RedirectResponse, Response, JSONResponse
-from sqlalchemy import func, or_
+from pydantic import BaseModel
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app import bus, models
@@ -28,7 +32,8 @@ def parse_dt(value: str):
 #  ATTENDEE PAGES
 # =====================================================================
 @router.get("/")
-def home(request: Request, q: str = "", category: str = "",
+def home(request: Request, q: str = "", category: str = "", venue_id: str = "",
+         date_from: str = "", date_to: str = "", min_price: str = "", max_price: str = "",
          db: Session = Depends(get_db), user=Depends(get_current_user)):
     query = db.query(models.Event).filter(models.Event.status == "published",
                                           models.Event.end_time >= datetime.now())
@@ -37,6 +42,27 @@ def home(request: Request, q: str = "", category: str = "",
         query = query.filter(or_(models.Event.title.ilike(like), models.Event.description.ilike(like)))
     if category:
         query = query.filter(models.Event.category == category)
+    if venue_id.isdigit():
+        query = query.filter(models.Event.venue_id == int(venue_id))
+    try:
+        if date_from:
+            query = query.filter(models.Event.start_time >= datetime.fromisoformat(date_from))
+        if date_to:
+            query = query.filter(models.Event.start_time < datetime.fromisoformat(date_to) + timedelta(days=1))
+    except ValueError:
+        pass
+    try:
+        conds = []
+        if min_price:
+            conds.append(models.TicketCategory.price >= float(min_price))
+        if max_price:
+            conds.append(models.TicketCategory.price <= float(max_price))
+        if conds:
+            query = query.filter(models.Event.id.in_(
+                select(models.TicketCategory.event_id).where(*conds)))
+    except ValueError:
+        pass
+
     events = query.order_by(models.Event.start_time).all()
     venues = {v.id: v for v in db.query(models.Venue).all()}
     left = dict(db.query(models.TicketCategory.event_id, func.sum(models.TicketCategory.remaining))
@@ -45,9 +71,12 @@ def home(request: Request, q: str = "", category: str = "",
                   .group_by(models.TicketCategory.event_id).all())
     categories = [r[0] for r in db.query(models.Event.category)
                   .filter(models.Event.status == "published").distinct().all()]
+    f = {"venue_id": venue_id, "date_from": date_from, "date_to": date_to,
+         "min_price": min_price, "max_price": max_price}
+    adv = any(f.values())
     return render(request, "home.html", user, events=events, venues=venues, left=left,
-                  prices=prices, categories=categories, q=q, category=category)
-
+                  prices=prices, categories=categories, q=q, category=category, f=f, adv=adv)
+                  
 @router.get("/events/{event_id}")
 def event_page(event_id: int, request: Request,
                db: Session = Depends(get_db), user=Depends(get_current_user)):
@@ -217,8 +246,23 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
         stats.append({"event": ev, "capacity": capacity, "sold": sold,
                       "revenue": revenue, "checked_in": checked})
     pending = db.query(models.HireRequest).filter_by(status="pending").count()
-    return render(request, "admin.html", user, stats=stats, pending=pending)
 
+    used = db.query(models.Ticket.used_at).filter(
+        models.Ticket.status == "used", models.Ticket.used_at.isnot(None)).all()
+    buckets = {}
+    for (t,) in used:
+        hour = t.replace(minute=0, second=0, microsecond=0)
+        buckets[hour] = buckets.get(hour, 0) + 1
+    ordered = sorted(buckets.items())
+    chart = {
+        "titles": [s["event"].title for s in stats],
+        "sold": [int(s["sold"]) for s in stats],
+        "revenue": [float(s["revenue"]) for s in stats],
+        "hours": [h.strftime("%d %b %H:00") for h, _ in ordered],
+        "checkins": [n for _, n in ordered],
+    }
+    return render(request, "admin.html", user, stats=stats, pending=pending, chart=chart)
+    
 # ----------------------------- venues -----------------------------
 @router.get("/admin/venues")
 def venues_page(request: Request, db: Session = Depends(get_db), user=Depends(require_role("admin"))):
@@ -453,3 +497,42 @@ def scanner_check(request: Request, code: str = Form(...), event_id: int = Form(
                          "result": c.get("result", "ERROR"),
                          "reason": c.get("reason", ""),
                          "event": c.get("event", "")})
+
+# =====================================================================
+#  AGENTS OVER HTTP (Part C): one inbox endpoint per agent
+# =====================================================================
+class InboxMessage(BaseModel):
+    """A JSON message sent to an agent from outside the web pages."""
+    sender: str = "ExternalClient"
+    performative: bus.Performative = "REQUEST"
+    content: dict
+    conversation_id: str | None = None
+
+
+@router.get("/agents", summary="List the agents and the actions each one understands")
+def list_agents():
+    return {name: sorted(m[3:] for m in dir(agent) if m.startswith("on_"))
+            for name, agent in bus.AGENTS.items()}
+
+
+@router.post("/agents/{agent_name}/inbox",
+             summary="Send a JSON message to an agent",
+             description="Delivers the message through the message bus, so it is logged like every "
+                         "other message. Requires the X-Agent-Key header (the AGENT_API_KEY "
+                         "environment variable). Returns the agent's reply (AGREE, REFUSE, "
+                         "PROPOSE, INFORM or FAILURE).")
+def agent_inbox(agent_name: str, msg: InboxMessage,
+                x_agent_key: str = Header(default=""),
+                db: Session = Depends(get_db)):
+    expected = os.getenv("AGENT_API_KEY", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="Agent inbox is disabled (AGENT_API_KEY is not set).")
+    if not secrets.compare_digest(x_agent_key.encode(), expected.encode()):
+        raise HTTPException(status_code=401, detail="Invalid agent key.")
+    if agent_name not in bus.AGENTS:
+        raise HTTPException(status_code=404, detail=f"Unknown agent: {agent_name}")
+    try:
+        reply = bus.send(db, msg.sender, agent_name, msg.performative, msg.content, msg.conversation_id)
+    except (KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=f"Bad message content: {exc}")
+    return reply or {"performative": "INFORM", "content": {"status": "delivered, no reply"}}

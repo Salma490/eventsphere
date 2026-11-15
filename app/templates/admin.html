@@ -8,6 +8,26 @@
     {% if pending %}<span class="badge bg-danger">{{ pending }}</span>{% endif %}</a>
   <a class="btn btn-outline-secondary btn-sm" href="/admin/messages">Agent message log</a>
 </div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-6">
+    <div class="card"><div class="card-body">
+      <h6>Tickets sold and revenue per event</h6>
+      <canvas id="salesChart" height="230"></canvas>
+    </div></div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card"><div class="card-body">
+      <h6>Check-ins over time (per hour)</h6>
+      {% if chart.hours %}
+      <canvas id="checkChart" height="230"></canvas>
+      {% else %}
+      <p class="text-muted mb-0">No check-ins yet. Scan a ticket to see data here.</p>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+
 <div class="table-responsive">
 <table class="table table-striped align-middle">
   <thead><tr><th>Event</th><th>Status</th><th>Tickets sold</th><th>Capacity</th>
@@ -28,4 +48,37 @@
   </tbody>
 </table>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+var chartData = {{ chart | tojson }};
+new Chart(document.getElementById('salesChart'), {
+  type: 'bar',
+  data: {
+    labels: chartData.titles,
+    datasets: [
+      { label: 'Tickets sold', data: chartData.sold, backgroundColor: '#0d6efd', yAxisID: 'y' },
+      { label: 'Revenue (LKR)', data: chartData.revenue, backgroundColor: '#198754', yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Tickets' } },
+      y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false },
+            title: { display: true, text: 'LKR' } }
+    }
+  }
+});
+var checkEl = document.getElementById('checkChart');
+if (checkEl) {
+  new Chart(checkEl, {
+    type: 'line',
+    data: { labels: chartData.hours,
+            datasets: [{ label: 'Check-ins', data: chartData.checkins,
+                         borderColor: '#dc3545', backgroundColor: '#dc3545', tension: 0.2 }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+</script>
 {% endblock %}
