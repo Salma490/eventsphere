@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<h2 class="mb-1">Upcoming events</h2>
-<p class="text-muted mb-3">Book tickets for concerts, workshops, seminars and conferences.</p><form method="get" action="/" class="row g-2 mb-4">
+<div class="hero">
+  <h1>Find your next event</h1>
+  <p>Book tickets for concerts, workshops, seminars and conferences, and walk in with a QR code.</p>
+</div>
+
+<div class="card mb-4"><div class="card-body">
+<form method="get" action="/" class="row g-2">
   <div class="col-12 col-md-6">
     <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search events by keyword">
   </div>
@@ -40,25 +45,30 @@
     <a href="/" class="small">Clear filters</a>
   </div>
 </form>
+</div></div>
+
 <div class="row g-3">
   {% for ev in events %}
   <div class="col-12 col-md-6 col-lg-4">
-    <div class="card h-100 shadow-sm">
+    <div class="card card-hover h-100">
       {% if venues[ev.venue_id].image_url %}
-      <img src="{{ venues[ev.venue_id].image_url }}" class="card-img-top" alt="" style="height:160px;object-fit:cover">
+      <img src="{{ venues[ev.venue_id].image_url }}" class="event-img" alt="">
+      {% else %}
+      <div class="event-ph">🎫</div>
       {% endif %}
-      <div class="card-body">
-        <span class="badge bg-info text-dark">{{ ev.category }}</span>
+      <div class="card-body d-flex flex-column">
+        <div><span class="badge bg-info text-dark">{{ ev.category }}</span></div>
         <h5 class="card-title mt-2">{{ ev.title }}</h5>
-        <p class="mb-1 small">{{ venues[ev.venue_id].name }}, {{ venues[ev.venue_id].location }}</p>
-        <p class="mb-1 small">{{ ev.start_time.strftime('%a %d %b %Y, %H:%M') }}</p>
-        <p class="small">From LKR {{ '%.2f'|format(prices.get(ev.id, 0)) }} &middot; {{ left.get(ev.id, 0) }} tickets left</p>
+        <p class="mb-1 small text-muted">{{ venues[ev.venue_id].name }}, {{ venues[ev.venue_id].location }}</p>
+        <p class="mb-2 small text-muted">{{ ev.start_time.strftime('%a %d %b %Y, %H:%M') }}</p>
+        <p class="mt-auto mb-3"><span class="price-tag">From LKR {{ '%.2f'|format(prices.get(ev.id, 0)) }}</span>
+          <span class="small text-muted"> &middot; {{ left.get(ev.id, 0) }} tickets left</span></p>
         <a href="/events/{{ ev.id }}" class="btn btn-primary btn-sm">View and book</a>
       </div>
     </div>
   </div>
   {% else %}
-    <div class="col-12">
+  <div class="col-12">
     <div class="text-center text-muted py-5">
       <p class="fs-5 mb-2">No events found</p>
       <p class="small">Try different keywords or <a href="/">clear the filters</a>.</p>

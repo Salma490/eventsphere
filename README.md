@@ -4,14 +4,14 @@ A mobile-friendly venue booking and digital ticketing platform in which every bo
 IT4123 Agent Based Computing Practical, ICA 02.
 
 **Live URL:** https://eventsphere-1-0vw2.onrender.com
-
+**API documentation:** https://eventsphere-1-0vw2.onrender.com/docs
 **GitHub:** https://github.com/Salma490/eventsphere
 
 _(Hosted on a free Render instance, so the first visit after a quiet period can take about a minute to wake up.)_
 
 ## Technology
 
-Python 3.12, FastAPI, Pydantic, SQLAlchemy, PostgreSQL (production, hosted on Render), SQLite (local development), Jinja2 templates with Bootstrap 5, `qrcode` (QR generation), `html5-qrcode` (camera scanning), pytest.
+Python 3.12, FastAPI, Pydantic, SQLAlchemy, PostgreSQL (production, hosted on Render), SQLite (local development), Jinja2 templates with Bootstrap 5, Chart.js (dashboard charts), `qrcode` (QR generation), `html5-qrcode` (camera scanning), pytest.
 
 ## The five agents
 
@@ -23,7 +23,31 @@ Python 3.12, FastAPI, Pydantic, SQLAlchemy, PostgreSQL (production, hosted on Re
 | WaitlistAgent     | Pass freed seats to waiting customers with timed holds (30 second sweep timer) |
 | NotificationAgent | Turn events from other agents into user notifications                          |
 
-Agents only communicate through JSON messages (sender, receiver, performative, content, conversation id) sent over a message bus (`app/bus.py`). Every message is stored and shown on the admin page `/admin/messages`.
+Agents only communicate through JSON messages (sender, receiver, performative, content, conversation id) sent over a message bus (`app/bus.py`). Every message is stored and shown on the admin page `/admin/messages`. Each agent's decision rules are listed in the project report.
+
+## Advanced features (Part C)
+
+- Waitlist with timed seat holds, a visible countdown and automatic re-offer (30 second sweep)
+- Weekend pricing for venue hire, decided by the VenueAgent (+25% on Saturday and Sunday)
+- Detection of suspicious repeated scans of the same ticket (admins are notified from the third scan)
+- Agents reachable over HTTP: `GET /agents` and `POST /agents/{agent_name}/inbox` (see below)
+- Dashboard charts: tickets and revenue per event, check-ins per hour
+- Advanced search: venue, date range and price range filters
+
+## Agent HTTP inbox
+
+Each agent can receive a JSON message over HTTP. The message goes through the same message bus, so it is logged on the admin message page like every other message. The endpoint is disabled unless the `AGENT_API_KEY` environment variable is set, and each request must send that key in the `X-Agent-Key` header.
+
+```
+curl -X POST https://eventsphere-1-0vw2.onrender.com/agents/VenueAgent/inbox \
+  -H "Content-Type: application/json" \
+  -H "X-Agent-Key: YOUR_KEY" \
+  -d '{"sender": "ExternalClient", "performative": "REQUEST",
+       "content": {"action": "check_slot", "venue_id": 1,
+                   "start": "2030-01-01T10:00:00", "end": "2030-01-01T12:00:00"}}'
+```
+
+`GET /agents` lists every agent and the actions it accepts. Interactive documentation is at `/docs`.
 
 ## Run locally
 
@@ -38,14 +62,17 @@ uvicorn app.main:app --reload
 
 Open http://127.0.0.1:8000. A local SQLite file (`eventsphere.db`) is created automatically, and the demo accounts and sample venues are added on first start.
 
+To try the agent inbox locally, set a key first in the same terminal (Command Prompt: `set AGENT_API_KEY=demo-key-123`, PowerShell: `$env:AGENT_API_KEY="demo-key-123"`), then start the server.
+
 ## Environment variables
 
-| Variable         | Purpose                                                      | Default                      |
-| ---------------- | ------------------------------------------------------------ | ---------------------------- |
-| `DATABASE_URL`   | Database connection string (PostgreSQL in production)        | `sqlite:///./eventsphere.db` |
-| `SECRET_KEY`     | Signs session cookies. Set a long random value in production | development-only value       |
-| `TZ`             | Server time zone (production uses `Asia/Colombo`)            | system time zone             |
-| `PYTHON_VERSION` | Python version used by the host (production uses 3.12.10)    | not needed locally           |
+| Variable         | Purpose                                                                      | Default                      |
+| ---------------- | ---------------------------------------------------------------------------- | ---------------------------- |
+| `DATABASE_URL`   | Database connection string (PostgreSQL in production)                        | `sqlite:///./eventsphere.db` |
+| `SECRET_KEY`     | Signs session cookies. Set a long random value in production                 | development-only value       |
+| `AGENT_API_KEY`  | Key required by the agent HTTP inbox. The inbox is disabled if it is not set | not set                      |
+| `TZ`             | Server time zone (production uses `Asia/Colombo`)                            | system time zone             |
+| `PYTHON_VERSION` | Python version used by the host (production uses 3.12.10)                    | not needed locally           |
 
 No secrets are committed to Git. They are set as environment variables on the host.
 
@@ -63,7 +90,7 @@ No secrets are committed to Git. They are set as environment variables on the ho
 python -m pytest -v
 ```
 
-21 tests covering overbooking, double check-in, wrong-event and cancelled tickets, venue clashes and alternatives, refunds, waitlist expiry, notifications, message tracing, role checks and password hashing. Tests use a separate `test_eventsphere.db`.
+25 tests covering overbooking, double check-in, wrong-event and cancelled tickets, venue clashes and alternatives, refunds, waitlist expiry, notifications, message tracing, role checks, password hashing, the agent HTTP inbox, advanced search and the dashboard charts. Tests use a separate `test_eventsphere.db`.
 
 ## Security and design notes
 
