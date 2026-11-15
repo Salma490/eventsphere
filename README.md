@@ -4,6 +4,7 @@ A mobile-friendly venue booking and digital ticketing platform in which every bo
 IT4123 Agent Based Computing Practical, ICA 02.
 
 **Live URL:** https://eventsphere-1-0vw2.onrender.com
+
 **GitHub:** https://github.com/Salma490/eventsphere
 
 _(Hosted on a free Render instance, so the first visit after a quiet period can take about a minute to wake up.)_
